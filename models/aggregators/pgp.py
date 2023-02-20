@@ -4,10 +4,11 @@ from models.aggregators.aggregator import PredictionAggregator
 from typing import Dict
 from torch.distributions import Categorical
 from positional_encodings import PositionalEncoding1D
+import os
 
 
 # Initialize device:
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu")
 
 
 class PGP(PredictionAggregator):

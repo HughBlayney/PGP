@@ -2,10 +2,11 @@ import torch.optim
 from typing import Dict, Union
 import torch
 import numpy as np
+import os
 
 
 # Initialize device:
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu")
 
 
 def convert_double_to_float(data: Union[Dict, torch.Tensor]):

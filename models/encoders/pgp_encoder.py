@@ -3,14 +3,15 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from typing import Dict
-
+import os
 
 # Initialize device:
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(
+    os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu"
+)
 
 
 class PGPEncoder(PredictionEncoder):
-
     def __init__(self, args: Dict):
         """
         GRU based encoder from PGP. Lane node features and agent histories encoded using GRUs.
