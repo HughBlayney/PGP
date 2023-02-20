@@ -7,7 +7,9 @@ import torch
 import time
 import math
 import os
+from random import sample
 import train_eval.utils as u
+from typing import Optional
 import os
 
 
@@ -19,7 +21,7 @@ class Trainer:
     """
     Trainer class for running train-val loops
     """
-    def __init__(self, cfg: Dict, data_root: str, data_dir: str, checkpoint_path=None, just_weights=False, writer=None):
+    def __init__(self, cfg: Dict, data_root: str, data_dir: str, checkpoint_path=None, just_weights=False, writer=None, train_data_fraction: Optional[float] = None):
         """
         Initialize trainer object
         :param cfg: Configuration parameters
@@ -34,6 +36,8 @@ class Trainer:
         ds_type = cfg['dataset'] + '_' + cfg['agent_setting'] + '_' + cfg['input_representation']
         spec_args = get_specific_args(cfg['dataset'], data_root, cfg['version'] if 'version' in cfg.keys() else None)
         train_set = initialize_dataset(ds_type, ['load_data', data_dir, cfg['train_set_args']] + spec_args)
+        if train_data_fraction is not None and train_data_fraction < 1.0:
+            train_set = torch_data.Subset(train_set, sample(range(len(train_set)), k=int(len(train_set) * train_data_fraction)))
         val_set = initialize_dataset(ds_type, ['load_data', data_dir, cfg['val_set_args']] + spec_args)
         datasets = {'train': train_set, 'val': val_set}
 
