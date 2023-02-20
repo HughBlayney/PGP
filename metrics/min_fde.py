@@ -10,10 +10,12 @@ class MinFDEK(Metric):
     """
 
     def __init__(self, args: Dict):
-        self.k = args['k']
-        self.name = 'min_fde_' + str(self.k)
+        self.k = args["k"]
+        self.name = "min_fde_" + str(self.k)
 
-    def compute(self, predictions: Dict, ground_truth: Union[Dict, torch.Tensor]) -> torch.Tensor:
+    def compute(
+        self, predictions: Dict, ground_truth: Union[Dict, torch.Tensor]
+    ) -> torch.Tensor:
         """
         Compute MinFDEK
         :param predictions: Dictionary with 'traj': predicted trajectories and 'probs': mode probabilities
@@ -21,9 +23,9 @@ class MinFDEK(Metric):
         :return:
         """
         # Unpack arguments
-        traj = predictions['traj']
-        probs = predictions['probs']
-        traj_gt = ground_truth['traj'] if type(ground_truth) == dict else ground_truth
+        traj = predictions["traj"]
+        probs = predictions["probs"]
+        traj_gt = ground_truth["traj"] if type(ground_truth) == dict else ground_truth
 
         # Useful params
         batch_size = probs.shape[0]
@@ -31,8 +33,11 @@ class MinFDEK(Metric):
         sequence_length = traj.shape[2]
 
         # Masks for variable length ground truth trajectories
-        masks = ground_truth['masks'] if type(ground_truth) == dict and 'masks' in ground_truth.keys() \
+        masks = (
+            ground_truth["masks"]
+            if type(ground_truth) == dict and "masks" in ground_truth.keys()
             else torch.zeros(batch_size, sequence_length).to(traj.device)
+        )
 
         min_k = min(self.k, num_pred_modes)
 

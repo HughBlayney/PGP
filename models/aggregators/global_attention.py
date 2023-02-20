@@ -11,7 +11,6 @@ class GlobalAttention(PredictionAggregator):
     """
 
     def __init__(self, args: Dict):
-
         """
         args to include
 
@@ -21,19 +20,22 @@ class GlobalAttention(PredictionAggregator):
 
         """
         super().__init__()
-        self.query_emb = nn.Linear(args['target_agent_enc_size'], args['emb_size'])
-        self.key_emb = nn.Linear(args['context_enc_size'], args['emb_size'])
-        self.val_emb = nn.Linear(args['context_enc_size'], args['emb_size'])
-        self.mha = nn.MultiheadAttention(args['emb_size'], args['num_heads'])
+        self.query_emb = nn.Linear(args["target_agent_enc_size"], args["emb_size"])
+        self.key_emb = nn.Linear(args["context_enc_size"], args["emb_size"])
+        self.val_emb = nn.Linear(args["context_enc_size"], args["emb_size"])
+        self.mha = nn.MultiheadAttention(args["emb_size"], args["num_heads"])
 
     def forward(self, encodings: Dict) -> torch.Tensor:
         """
         Forward pass for attention aggregator
         """
-        target_agent_enc = encodings['target_agent_encoding']
-        context_enc = encodings['context_encoding']
-        if context_enc['combined'] is not None:
-            combined_enc, combined_masks = context_enc['combined'], context_enc['combined_masks'].bool()
+        target_agent_enc = encodings["target_agent_encoding"]
+        context_enc = encodings["context_encoding"]
+        if context_enc["combined"] is not None:
+            combined_enc, combined_masks = (
+                context_enc["combined"],
+                context_enc["combined_masks"].bool(),
+            )
         else:
             combined_enc, combined_masks = self.get_combined_encodings(context_enc)
 
@@ -53,15 +55,15 @@ class GlobalAttention(PredictionAggregator):
         """
         encodings = []
         masks = []
-        if 'map' in context_enc:
-            encodings.append(context_enc['map'])
-            masks.append(context_enc['map_masks'])
-        if 'vehicles' in context_enc:
-            encodings.append(context_enc['vehicles'])
-            masks.append(context_enc['vehicle_masks'])
-        if 'pedestrians' in context_enc:
-            encodings.append(context_enc['pedestrians'])
-            masks.append(context_enc['pedestrian_masks'])
+        if "map" in context_enc:
+            encodings.append(context_enc["map"])
+            masks.append(context_enc["map_masks"])
+        if "vehicles" in context_enc:
+            encodings.append(context_enc["vehicles"])
+            masks.append(context_enc["vehicle_masks"])
+        if "pedestrians" in context_enc:
+            encodings.append(context_enc["pedestrians"])
+            masks.append(context_enc["pedestrian_masks"])
         combined_enc = torch.cat(encodings, dim=1)
         combined_masks = torch.cat(masks, dim=1).bool()
         return combined_enc, combined_masks

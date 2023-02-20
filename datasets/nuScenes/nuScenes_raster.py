@@ -22,24 +22,29 @@ class NuScenesRaster(NuScenesTrajectories):
         super().__init__(mode, data_dir, args, helper)
 
         # Raster parameters
-        self.img_size = args['img_size']
-        self.map_extent = args['map_extent']
+        self.img_size = args["img_size"]
+        self.map_extent = args["map_extent"]
 
         # Raster map with agent boxes
-        resolution = (self.map_extent[1] - self.map_extent[0]) / self. img_size[1]
-        self.map_rasterizer = StaticLayerRasterizer(self.helper,
-                                                    resolution=resolution,
-                                                    meters_ahead=self.map_extent[3],
-                                                    meters_behind=-self.map_extent[2],
-                                                    meters_left=-self.map_extent[0],
-                                                    meters_right=self.map_extent[1])
+        resolution = (self.map_extent[1] - self.map_extent[0]) / self.img_size[1]
+        self.map_rasterizer = StaticLayerRasterizer(
+            self.helper,
+            resolution=resolution,
+            meters_ahead=self.map_extent[3],
+            meters_behind=-self.map_extent[2],
+            meters_left=-self.map_extent[0],
+            meters_right=self.map_extent[1],
+        )
 
-        self.agent_rasterizer = AgentBoxesWithFadedHistory(self.helper, seconds_of_history=self.t_h,
-                                                           resolution=resolution,
-                                                           meters_ahead=self.map_extent[3],
-                                                           meters_behind=-self.map_extent[2],
-                                                           meters_left=-self.map_extent[0],
-                                                           meters_right=self.map_extent[1])
+        self.agent_rasterizer = AgentBoxesWithFadedHistory(
+            self.helper,
+            seconds_of_history=self.t_h,
+            resolution=resolution,
+            meters_ahead=self.map_extent[3],
+            meters_behind=-self.map_extent[2],
+            meters_left=-self.map_extent[0],
+            meters_right=self.map_extent[1],
+        )
 
     def compute_stats(self, idx: int):
         """

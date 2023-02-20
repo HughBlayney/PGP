@@ -9,7 +9,9 @@ import os
 
 
 # Initialize device:
-device = torch.device(os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu")
+device = torch.device(
+    os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu"
+)
 
 
 # Initialize ray:
@@ -21,13 +23,13 @@ def k_means_anchors(k, ds: SingleAgentDataset):
     """
     Extracts anchors for multipath/covernet using k-means on train set trajectories
     """
-    prototype_traj = ds[0]['ground_truth']['traj']
+    prototype_traj = ds[0]["ground_truth"]["traj"]
     traj_len = prototype_traj.shape[0]
     traj_dim = prototype_traj.shape[1]
     ds_size = len(ds)
     trajectories = np.zeros((ds_size, traj_len, traj_dim))
     for i, data in enumerate(ds):
-        trajectories[i] = data['ground_truth']['traj']
+        trajectories[i] = data["ground_truth"]["traj"]
     clustering = KMeans(n_clusters=k).fit(trajectories.reshape((ds_size, -1)))
     anchors = np.zeros((k, traj_len, traj_dim))
     for i in range(k):
@@ -62,7 +64,9 @@ def cluster_and_rank(k: int, data: np.ndarray):
         """
         Cluster using Scikit learn
         """
-        clustering_op = KMeans(n_clusters=n_clusters, n_init=1, max_iter=100, init='random').fit(x)
+        clustering_op = KMeans(
+            n_clusters=n_clusters, n_init=1, max_iter=100, init="random"
+        ).fit(x)
         return clustering_op.labels_, clustering_op.cluster_centers_
 
     def rank_clusters(cluster_counts, cluster_centers):
@@ -82,7 +86,9 @@ def cluster_and_rank(k: int, data: np.ndarray):
             n1 = cluster_counts.reshape(1, -1).repeat(len(cluster_counts), axis=0)
             n2 = n1.transpose()
             wts = n1 * n2 / (n1 + n2)
-            dists = wts * centroid_dists + np.diag(np.inf * np.ones(len(cluster_counts)))
+            dists = wts * centroid_dists + np.diag(
+                np.inf * np.ones(len(cluster_counts))
+            )
 
             # Get clusters with min Ward distance and select cluster with fewer counts
             c1, c2 = np.unravel_index(dists.argmin(), dists.shape)
@@ -93,8 +99,10 @@ def cluster_and_rank(k: int, data: np.ndarray):
             ranks[cluster_ids[c]] = i
 
             # Merge clusters and update identity of merged cluster
-            cluster_centers[c_] = (cluster_counts[c_] * cluster_centers[c_] + cluster_counts[c] * cluster_centers[c]) /\
-                                  (cluster_counts[c_] + cluster_counts[c])
+            cluster_centers[c_] = (
+                cluster_counts[c_] * cluster_centers[c_]
+                + cluster_counts[c] * cluster_centers[c]
+            ) / (cluster_counts[c_] + cluster_counts[c])
             cluster_counts[c_] += cluster_counts[c]
 
             # Discard merged cluster
@@ -107,7 +115,7 @@ def cluster_and_rank(k: int, data: np.ndarray):
     cluster_lbls, cluster_ctrs = cluster(k, data)
     cluster_cnts = np.unique(cluster_lbls, return_counts=True)[1]
     cluster_ranks = rank_clusters(cluster_cnts.copy(), cluster_ctrs.copy())
-    return {'lbls': cluster_lbls, 'ranks': cluster_ranks, 'counts': cluster_cnts}
+    return {"lbls": cluster_lbls, "ranks": cluster_ranks, "counts": cluster_cnts}
 
 
 def cluster_traj(k: int, traj: torch.Tensor):
@@ -129,15 +137,30 @@ def cluster_traj(k: int, traj: torch.Tensor):
     data = data.reshape(batch_size, num_samples, -1).detach().cpu().numpy()
 
     # Cluster and rank
-    cluster_ops = ray.get([cluster_and_rank.remote(k, data_slice) for data_slice in data])
-    cluster_lbls = [cluster_op['lbls'] for cluster_op in cluster_ops]
-    cluster_counts = [cluster_op['counts'] for cluster_op in cluster_ops]
-    cluster_ranks = [cluster_op['ranks'] for cluster_op in cluster_ops]
+    cluster_ops = ray.get(
+        [cluster_and_rank.remote(k, data_slice) for data_slice in data]
+    )
+    cluster_lbls = [cluster_op["lbls"] for cluster_op in cluster_ops]
+    cluster_counts = [cluster_op["counts"] for cluster_op in cluster_ops]
+    cluster_ranks = [cluster_op["ranks"] for cluster_op in cluster_ops]
 
     # Compute mean (clustered) traj and scores
-    lbls = torch.as_tensor(cluster_lbls, device=device).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, traj_len, 2).long()
-    traj_summed = torch.zeros(batch_size, k, traj_len, 2, device=device).scatter_add(1, lbls, traj)
-    cnt_tensor = torch.as_tensor(cluster_counts, device=device).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, traj_len, 2)
+    lbls = (
+        torch.as_tensor(cluster_lbls, device=device)
+        .unsqueeze(-1)
+        .unsqueeze(-1)
+        .repeat(1, 1, traj_len, 2)
+        .long()
+    )
+    traj_summed = torch.zeros(batch_size, k, traj_len, 2, device=device).scatter_add(
+        1, lbls, traj
+    )
+    cnt_tensor = (
+        torch.as_tensor(cluster_counts, device=device)
+        .unsqueeze(-1)
+        .unsqueeze(-1)
+        .repeat(1, 1, traj_len, 2)
+    )
     traj_clustered = traj_summed / cnt_tensor
     scores = 1 / torch.as_tensor(cluster_ranks, device=device)
     scores = scores / torch.sum(scores, dim=1)[0]

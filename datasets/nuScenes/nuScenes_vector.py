@@ -29,24 +29,32 @@ class NuScenesVector(NuScenesTrajectories):
         super().__init__(mode, data_dir, args, helper)
 
         # Initialize helper and maps
-        self.map_locs = ['singapore-onenorth', 'singapore-hollandvillage', 'singapore-queenstown', 'boston-seaport']
-        self.maps = {i: NuScenesMap(map_name=i, dataroot=self.helper.data.dataroot) for i in self.map_locs}
+        self.map_locs = [
+            "singapore-onenorth",
+            "singapore-hollandvillage",
+            "singapore-queenstown",
+            "boston-seaport",
+        ]
+        self.maps = {
+            i: NuScenesMap(map_name=i, dataroot=self.helper.data.dataroot)
+            for i in self.map_locs
+        }
 
         # Vector map parameters
-        self.map_extent = args['map_extent']
-        self.polyline_resolution = args['polyline_resolution']
-        self.polyline_length = args['polyline_length']
+        self.map_extent = args["map_extent"]
+        self.polyline_resolution = args["polyline_resolution"]
+        self.polyline_length = args["polyline_length"]
 
         # Load dataset stats (max nodes, max agents etc.)
-        if self.mode == 'extract_data':
+        if self.mode == "extract_data":
             stats = self.load_stats()
-            self.max_nodes = stats['num_lane_nodes']
-            self.max_vehicles = stats['num_vehicles']
-            self.max_pedestrians = stats['num_pedestrians']
+            self.max_nodes = stats["num_lane_nodes"]
+            self.max_vehicles = stats["num_vehicles"]
+            self.max_pedestrians = stats["num_pedestrians"]
 
         # Whether to add random flips for data augmentation
-        elif self.mode == 'load_data':
-            self.random_flips = args['random_flips']
+        elif self.mode == "load_data":
+            self.random_flips = args["random_flips"]
 
     def compute_stats(self, idx: int) -> Dict[str, int]:
         """
@@ -55,9 +63,9 @@ class NuScenesVector(NuScenesTrajectories):
         num_lane_nodes = self.get_map_representation(idx)
         num_vehicles, num_pedestrians = self.get_surrounding_agent_representation(idx)
         stats = {
-            'num_lane_nodes': num_lane_nodes,
-            'num_vehicles': num_vehicles,
-            'num_pedestrians': num_pedestrians
+            "num_lane_nodes": num_lane_nodes,
+            "num_vehicles": num_vehicles,
+            "num_pedestrians": num_pedestrians,
         }
 
         return stats
@@ -83,14 +91,16 @@ class NuScenesVector(NuScenesTrajectories):
         i_t, s_t = self.token_list[idx].split("_")
 
         # x, y co-ordinates in agent's frame of reference
-        hist = self.helper.get_past_for_agent(i_t, s_t, seconds=self.t_h, in_agent_frame=True)
+        hist = self.helper.get_past_for_agent(
+            i_t, s_t, seconds=self.t_h, in_agent_frame=True
+        )
 
         # Zero pad for track histories shorter than t_h
         hist_zeropadded = np.zeros((int(self.t_h) * 2 + 1, 2))
 
         # Flip to have correct order of timestamps
         hist = np.flip(hist, 0)
-        hist_zeropadded[-hist.shape[0]-1: -1] = hist
+        hist_zeropadded[-hist.shape[0] - 1 : -1] = hist
         hist = hist_zeropadded
 
         # Get velocity, acc and yaw_rate over past t_h sec
@@ -130,21 +140,24 @@ class NuScenesVector(NuScenesTrajectories):
             lane_node_feats = [np.zeros((1, 5))]
 
         # While running the dataset class in 'compute_stats' mode:
-        if self.mode == 'compute_stats':
+        if self.mode == "compute_stats":
             return len(lane_node_feats)
 
         # Convert list of lane node feats to fixed size numpy array and masks
-        lane_node_feats, lane_node_masks = self.list_to_tensor(lane_node_feats, self.max_nodes, self.polyline_length, 5)
+        lane_node_feats, lane_node_masks = self.list_to_tensor(
+            lane_node_feats, self.max_nodes, self.polyline_length, 5
+        )
 
         map_representation = {
-            'lane_node_feats': lane_node_feats,
-            'lane_node_masks': lane_node_masks
+            "lane_node_feats": lane_node_feats,
+            "lane_node_masks": lane_node_masks,
         }
 
         return map_representation
 
-    def get_surrounding_agent_representation(self, idx: int) -> \
-            Union[Tuple[int, int], Dict]:
+    def get_surrounding_agent_representation(
+        self, idx: int
+    ) -> Union[Tuple[int, int], Dict]:
         """
         Extracts surrounding agent representation
         :param idx: data index
@@ -152,26 +165,30 @@ class NuScenesVector(NuScenesTrajectories):
         """
 
         # Get vehicles and pedestrian histories for current sample
-        vehicles = self.get_agents_of_type(idx, 'vehicle')
-        pedestrians = self.get_agents_of_type(idx, 'human')
+        vehicles = self.get_agents_of_type(idx, "vehicle")
+        pedestrians = self.get_agents_of_type(idx, "human")
 
         # Discard poses outside map extent
         vehicles = self.discard_poses_outside_extent(vehicles)
         pedestrians = self.discard_poses_outside_extent(pedestrians)
 
         # While running the dataset class in 'compute_stats' mode:
-        if self.mode == 'compute_stats':
+        if self.mode == "compute_stats":
             return len(vehicles), len(pedestrians)
 
         # Convert to fixed size arrays for batching
-        vehicles, vehicle_masks = self.list_to_tensor(vehicles, self.max_vehicles, self.t_h * 2 + 1, 5)
-        pedestrians, pedestrian_masks = self.list_to_tensor(pedestrians, self.max_pedestrians, self.t_h * 2 + 1, 5)
+        vehicles, vehicle_masks = self.list_to_tensor(
+            vehicles, self.max_vehicles, self.t_h * 2 + 1, 5
+        )
+        pedestrians, pedestrian_masks = self.list_to_tensor(
+            pedestrians, self.max_pedestrians, self.t_h * 2 + 1, 5
+        )
 
         surrounding_agent_representation = {
-            'vehicles': vehicles,
-            'vehicle_masks': vehicle_masks,
-            'pedestrians': pedestrians,
-            'pedestrian_masks': pedestrian_masks
+            "vehicles": vehicles,
+            "vehicle_masks": vehicle_masks,
+            "pedestrians": pedestrians,
+            "pedestrian_masks": pedestrian_masks,
         }
 
         return surrounding_agent_representation
@@ -184,14 +201,16 @@ class NuScenesVector(NuScenesTrajectories):
         """
         i_t, s_t = self.token_list[idx].split("_")
         sample_annotation = self.helper.get_sample_annotation(i_t, s_t)
-        x, y = sample_annotation['translation'][:2]
-        yaw = quaternion_yaw(Quaternion(sample_annotation['rotation']))
+        x, y = sample_annotation["translation"][:2]
+        yaw = quaternion_yaw(Quaternion(sample_annotation["rotation"]))
         yaw = correct_yaw(yaw)
         global_pose = (x, y, yaw)
 
         return global_pose
 
-    def get_lanes_around_agent(self, global_pose: Tuple[float, float, float], map_api: NuScenesMap) -> Dict:
+    def get_lanes_around_agent(
+        self, global_pose: Tuple[float, float, float], map_api: NuScenesMap
+    ) -> Dict:
         """
         Gets lane polylines around the target agent
         :param global_pose: (x, y, yaw) or target agent in global co-ordinates
@@ -200,13 +219,15 @@ class NuScenesVector(NuScenesTrajectories):
         """
         x, y, _ = global_pose
         radius = max(self.map_extent)
-        lanes = map_api.get_records_in_radius(x, y, radius, ['lane', 'lane_connector'])
-        lanes = lanes['lane'] + lanes['lane_connector']
+        lanes = map_api.get_records_in_radius(x, y, radius, ["lane", "lane_connector"])
+        lanes = lanes["lane"] + lanes["lane_connector"]
         lanes = map_api.discretize_lanes(lanes, self.polyline_resolution)
 
         return lanes
 
-    def get_polygons_around_agent(self, global_pose: Tuple[float, float, float], map_api: NuScenesMap) -> Dict:
+    def get_polygons_around_agent(
+        self, global_pose: Tuple[float, float, float], map_api: NuScenesMap
+    ) -> Dict:
         """
         Gets polygon layers around the target agent e.g. crosswalks, stop lines
         :param global_pose: (x, y, yaw) or target agent in global co-ordinates
@@ -215,17 +236,23 @@ class NuScenesVector(NuScenesTrajectories):
         """
         x, y, _ = global_pose
         radius = max(self.map_extent)
-        record_tokens = map_api.get_records_in_radius(x, y, radius, ['stop_line', 'ped_crossing'])
+        record_tokens = map_api.get_records_in_radius(
+            x, y, radius, ["stop_line", "ped_crossing"]
+        )
         polygons = {k: [] for k in record_tokens.keys()}
         for k, v in record_tokens.items():
             for record_token in v:
-                polygon_token = map_api.get(k, record_token)['polygon_token']
+                polygon_token = map_api.get(k, record_token)["polygon_token"]
                 polygons[k].append(map_api.extract_polygon(polygon_token))
 
         return polygons
 
-    def get_lane_node_feats(self, origin: Tuple, lanes: Dict[str, List[Tuple]],
-                            polygons: Dict[str, List[Polygon]]) -> Tuple[List[np.ndarray], List[str]]:
+    def get_lane_node_feats(
+        self,
+        origin: Tuple,
+        lanes: Dict[str, List[Tuple]],
+        polygons: Dict[str, List[Polygon]],
+    ) -> Tuple[List[np.ndarray], List[str]]:
         """
         Generates vector HD map representation in the agent centric frame of reference
         :param origin: (x, y, yaw) of target agent in global co-ordinates
@@ -242,13 +269,20 @@ class NuScenesVector(NuScenesTrajectories):
         lane_flags = self.get_lane_flags(lanes, polygons)
 
         # Convert lane polylines to local coordinates:
-        lanes = [np.asarray([self.global_to_local(origin, pose) for pose in lane]) for lane in lanes]
+        lanes = [
+            np.asarray([self.global_to_local(origin, pose) for pose in lane])
+            for lane in lanes
+        ]
 
         # Concatenate lane poses and lane flags
-        lane_node_feats = [np.concatenate((lanes[i], lane_flags[i]), axis=1) for i in range(len(lanes))]
+        lane_node_feats = [
+            np.concatenate((lanes[i], lane_flags[i]), axis=1) for i in range(len(lanes))
+        ]
 
         # Split lane centerlines into smaller segments:
-        lane_node_feats, lane_node_ids = self.split_lanes(lane_node_feats, self.polyline_length, lane_ids)
+        lane_node_feats, lane_node_ids = self.split_lanes(
+            lane_node_feats, self.polyline_length, lane_ids
+        )
 
         return lane_node_feats, lane_node_ids
 
@@ -265,17 +299,23 @@ class NuScenesVector(NuScenesTrajectories):
         origin = self.get_target_agent_global_pose(idx)
 
         # Load all agents for sample
-        agent_details = self.helper.get_past_for_sample(s_t, seconds=self.t_h, in_agent_frame=False, just_xy=False)
-        agent_hist = self.helper.get_past_for_sample(s_t, seconds=self.t_h, in_agent_frame=False, just_xy=True)
+        agent_details = self.helper.get_past_for_sample(
+            s_t, seconds=self.t_h, in_agent_frame=False, just_xy=False
+        )
+        agent_hist = self.helper.get_past_for_sample(
+            s_t, seconds=self.t_h, in_agent_frame=False, just_xy=True
+        )
 
         # Add present time to agent histories
         present_time = self.helper.get_annotations_for_sample(s_t)
         for annotation in present_time:
-            ann_i_t = annotation['instance_token']
+            ann_i_t = annotation["instance_token"]
             if ann_i_t in agent_hist.keys():
-                present_pose = np.asarray(annotation['translation'][0:2]).reshape(1, 2)
+                present_pose = np.asarray(annotation["translation"][0:2]).reshape(1, 2)
                 if agent_hist[ann_i_t].any():
-                    agent_hist[ann_i_t] = np.concatenate((present_pose, agent_hist[ann_i_t]))
+                    agent_hist[ann_i_t] = np.concatenate(
+                        (present_pose, agent_hist[ann_i_t])
+                    )
                 else:
                     agent_hist[ann_i_t] = present_pose
 
@@ -283,9 +323,13 @@ class NuScenesVector(NuScenesTrajectories):
         agent_list = []
         agent_i_ts = []
         for k, v in agent_details.items():
-            if v and agent_type in v[0]['category_name'] and v[0]['instance_token'] != i_t:
+            if (
+                v
+                and agent_type in v[0]["category_name"]
+                and v[0]["instance_token"] != i_t
+            ):
                 agent_list.append(agent_hist[k])
-                agent_i_ts.append(v[0]['instance_token'])
+                agent_i_ts.append(v[0]["instance_token"])
 
         # Convert to target agent's frame of reference
         for agent in agent_list:
@@ -297,14 +341,14 @@ class NuScenesVector(NuScenesTrajectories):
         for n, agent in enumerate(agent_list):
             xy = np.flip(agent, axis=0)
             motion_states = self.get_past_motion_states(agent_i_ts[n], s_t)
-            motion_states = motion_states[-len(xy):, :]
+            motion_states = motion_states[-len(xy) :, :]
             agent_list[n] = np.concatenate((xy, motion_states), axis=1)
 
         return agent_list
 
-    def discard_poses_outside_extent(self, pose_set: List[np.ndarray],
-                                     ids: List[str] = None) -> Union[List[np.ndarray],
-                                                                     Tuple[List[np.ndarray], List[str]]]:
+    def discard_poses_outside_extent(
+        self, pose_set: List[np.ndarray], ids: List[str] = None
+    ) -> Union[List[np.ndarray], Tuple[List[np.ndarray], List[str]]]:
         """
         Discards lane or agent poses outside predefined extent in target agent's frame of reference.
         :param pose_set: agent or lane polyline poses
@@ -317,8 +361,10 @@ class NuScenesVector(NuScenesTrajectories):
         for m, poses in enumerate(pose_set):
             flag = False
             for n, pose in enumerate(poses):
-                if self.map_extent[0] <= pose[0] <= self.map_extent[1] and \
-                        self.map_extent[2] <= pose[1] <= self.map_extent[3]:
+                if (
+                    self.map_extent[0] <= pose[0] <= self.map_extent[1]
+                    and self.map_extent[2] <= pose[1] <= self.map_extent[3]
+                ):
                     flag = True
 
             if flag:
@@ -335,11 +381,13 @@ class NuScenesVector(NuScenesTrajectories):
         """
         Function to load dataset statistics like max surrounding agents, max nodes, max edges etc.
         """
-        filename = os.path.join(self.data_dir, 'stats.pickle')
+        filename = os.path.join(self.data_dir, "stats.pickle")
         if not os.path.isfile(filename):
-            raise Exception('Could not find dataset statistics. Please run the dataset in compute_stats mode')
+            raise Exception(
+                "Could not find dataset statistics. Please run the dataset in compute_stats mode"
+            )
 
-        with open(filename, 'rb') as handle:
+        with open(filename, "rb") as handle:
             stats = pickle.load(handle)
 
         return stats
@@ -352,12 +400,20 @@ class NuScenesVector(NuScenesTrajectories):
         motion_states[-1, 0] = self.helper.get_velocity_for_agent(i_t, s_t)
         motion_states[-1, 1] = self.helper.get_acceleration_for_agent(i_t, s_t)
         motion_states[-1, 2] = self.helper.get_heading_change_rate_for_agent(i_t, s_t)
-        hist = self.helper.get_past_for_agent(i_t, s_t, seconds=self.t_h, in_agent_frame=True, just_xy=False)
+        hist = self.helper.get_past_for_agent(
+            i_t, s_t, seconds=self.t_h, in_agent_frame=True, just_xy=False
+        )
 
         for k in range(len(hist)):
-            motion_states[-(k + 2), 0] = self.helper.get_velocity_for_agent(i_t, hist[k]['sample_token'])
-            motion_states[-(k + 2), 1] = self.helper.get_acceleration_for_agent(i_t, hist[k]['sample_token'])
-            motion_states[-(k + 2), 2] = self.helper.get_heading_change_rate_for_agent(i_t, hist[k]['sample_token'])
+            motion_states[-(k + 2), 0] = self.helper.get_velocity_for_agent(
+                i_t, hist[k]["sample_token"]
+            )
+            motion_states[-(k + 2), 1] = self.helper.get_acceleration_for_agent(
+                i_t, hist[k]["sample_token"]
+            )
+            motion_states[-(k + 2), 2] = self.helper.get_heading_change_rate_for_agent(
+                i_t, hist[k]["sample_token"]
+            )
 
         motion_states = np.nan_to_num(motion_states)
         return motion_states
@@ -380,10 +436,16 @@ class NuScenesVector(NuScenesTrajectories):
 
         # Rotate
         global_yaw = correct_yaw(global_yaw)
-        theta = np.arctan2(-np.sin(global_yaw-origin_yaw), np.cos(global_yaw-origin_yaw))
+        theta = np.arctan2(
+            -np.sin(global_yaw - origin_yaw), np.cos(global_yaw - origin_yaw)
+        )
 
-        r = np.asarray([[np.cos(np.pi/2 - origin_yaw), np.sin(np.pi/2 - origin_yaw)],
-                        [-np.sin(np.pi/2 - origin_yaw), np.cos(np.pi/2 - origin_yaw)]])
+        r = np.asarray(
+            [
+                [np.cos(np.pi / 2 - origin_yaw), np.sin(np.pi / 2 - origin_yaw)],
+                [-np.sin(np.pi / 2 - origin_yaw), np.cos(np.pi / 2 - origin_yaw)],
+            ]
+        )
         local_x, local_y = np.matmul(r, np.asarray([local_x, local_y]).transpose())
 
         local_pose = (local_x, local_y, theta)
@@ -391,7 +453,9 @@ class NuScenesVector(NuScenesTrajectories):
         return local_pose
 
     @staticmethod
-    def split_lanes(lanes: List[np.ndarray], max_len: int, lane_ids: List[str]) -> Tuple[List[np.ndarray], List[str]]:
+    def split_lanes(
+        lanes: List[np.ndarray], max_len: int, lane_ids: List[str]
+    ) -> Tuple[List[np.ndarray], List[str]]:
         """
         Splits lanes into roughly equal sized smaller segments with defined maximum length
         :param lanes: list of lane poses
@@ -406,14 +470,16 @@ class NuScenesVector(NuScenesTrajectories):
             n_segments = int(np.ceil(len(lane) / max_len))
             n_poses = int(np.ceil(len(lane) / n_segments))
             for n in range(n_segments):
-                lane_segment = lane[n * n_poses: (n+1) * n_poses]
+                lane_segment = lane[n * n_poses : (n + 1) * n_poses]
                 lane_segments.append(lane_segment)
                 lane_segment_ids.append(lane_ids[idx])
 
         return lane_segments, lane_segment_ids
 
     @staticmethod
-    def get_lane_flags(lanes: List[List[Tuple]], polygons: Dict[str, List[Polygon]]) -> List[np.ndarray]:
+    def get_lane_flags(
+        lanes: List[List[Tuple]], polygons: Dict[str, List[Polygon]]
+    ) -> List[np.ndarray]:
         """
         Returns flags indicating whether each pose on lane polylines lies on polygon map layers
         like stop-lines or cross-walks
@@ -436,8 +502,9 @@ class NuScenesVector(NuScenesTrajectories):
         return lane_flags
 
     @staticmethod
-    def list_to_tensor(feat_list: List[np.ndarray], max_num: int, max_len: int,
-                       feat_size: int) -> Tuple[np.ndarray, np.ndarray]:
+    def list_to_tensor(
+        feat_list: List[np.ndarray], max_num: int, max_len: int, feat_size: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Converts a list of sequential features (e.g. lane polylines or agent history) to fixed size numpy arrays for
         forming mini-batches
@@ -452,8 +519,8 @@ class NuScenesVector(NuScenesTrajectories):
         feat_array = np.zeros((max_num, max_len, feat_size))
         mask_array = np.ones((max_num, max_len, feat_size))
         for n, feats in enumerate(feat_list):
-            feat_array[n, :len(feats), :] = feats
-            mask_array[n, :len(feats), :] = 0
+            feat_array[n, : len(feats), :] = feats
+            mask_array[n, : len(feats), :] = 0
 
         return feat_array, mask_array
 
@@ -465,31 +532,31 @@ class NuScenesVector(NuScenesTrajectories):
         :return: data: Dictionary with inputs and ground truth values fligpped along y-axis.
         """
         # Flip target agent
-        hist = data['inputs']['target_agent_representation']
+        hist = data["inputs"]["target_agent_representation"]
         hist[:, 0] = -hist[:, 0]  # x-coord
         hist[:, 4] = -hist[:, 4]  # yaw-rate
-        data['inputs']['target_agent_representation'] = hist
+        data["inputs"]["target_agent_representation"] = hist
 
         # Flip lane node features
-        lf = data['inputs']['map_representation']['lane_node_feats']
+        lf = data["inputs"]["map_representation"]["lane_node_feats"]
         lf[:, :, 0] = -lf[:, :, 0]  # x-coord
         lf[:, :, 2] = -lf[:, :, 2]  # yaw
-        data['inputs']['map_representation']['lane_node_feats'] = lf
+        data["inputs"]["map_representation"]["lane_node_feats"] = lf
 
         # Flip surrounding agents
-        vehicles = data['inputs']['surrounding_agent_representation']['vehicles']
+        vehicles = data["inputs"]["surrounding_agent_representation"]["vehicles"]
         vehicles[:, :, 0] = -vehicles[:, :, 0]  # x-coord
         vehicles[:, :, 4] = -vehicles[:, :, 4]  # yaw-rate
-        data['inputs']['surrounding_agent_representation']['vehicles'] = vehicles
+        data["inputs"]["surrounding_agent_representation"]["vehicles"] = vehicles
 
-        peds = data['inputs']['surrounding_agent_representation']['pedestrians']
+        peds = data["inputs"]["surrounding_agent_representation"]["pedestrians"]
         peds[:, :, 0] = -peds[:, :, 0]  # x-coord
         peds[:, :, 4] = -peds[:, :, 4]  # yaw-rate
-        data['inputs']['surrounding_agent_representation']['pedestrians'] = peds
+        data["inputs"]["surrounding_agent_representation"]["pedestrians"] = peds
 
         # Flip groud truth trajectory
-        fut = data['ground_truth']['traj']
+        fut = data["ground_truth"]["traj"]
         fut[:, 0] = -fut[:, 0]  # x-coord
-        data['ground_truth']['traj'] = fut
+        data["ground_truth"]["traj"] = fut
 
         return data

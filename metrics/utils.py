@@ -24,7 +24,9 @@ def mse(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> torch
     return err
 
 
-def max_dist(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
+def max_dist(
+    traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor
+) -> torch.Tensor:
     """
     Computes max distance of a set of trajectories with respect to ground truth trajectory.
 
@@ -47,7 +49,9 @@ def max_dist(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> 
     return dist
 
 
-def min_mse(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def min_mse(
+    traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes MSE for the best trajectory is a set, with respect to ground truth
     :param traj: predictions, shape [batch_size, num_modes, sequence_length, 2]
@@ -69,7 +73,9 @@ def min_mse(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> T
     return err, inds
 
 
-def min_ade(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def min_ade(
+    traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes average displacement error for the best trajectory is a set, with respect to ground truth
     :param traj: predictions, shape [batch_size, num_modes, sequence_length, 2]
@@ -91,7 +97,9 @@ def min_ade(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> T
     return err, inds
 
 
-def min_fde(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def min_fde(
+    traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes final displacement error for the best trajectory is a set, with respect to ground truth
     :param traj: predictions, shape [batch_size, num_modes, sequence_length, 2]
@@ -101,7 +109,7 @@ def min_fde(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> T
     """
     num_modes = traj.shape[1]
     traj_gt_rpt = traj_gt.unsqueeze(1).repeat(1, num_modes, 1, 1)
-    lengths = torch.sum(1-masks, dim=1).long()
+    lengths = torch.sum(1 - masks, dim=1).long()
     inds = lengths.unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, num_modes, 1, 2) - 1
 
     traj_last = torch.gather(traj[..., :2], dim=2, index=inds).squeeze(2)
@@ -116,7 +124,12 @@ def min_fde(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor) -> T
     return err, inds
 
 
-def miss_rate(traj: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor, dist_thresh: float = 2) -> torch.Tensor:
+def miss_rate(
+    traj: torch.Tensor,
+    traj_gt: torch.Tensor,
+    masks: torch.Tensor,
+    dist_thresh: float = 2,
+) -> torch.Tensor:
     """
     Computes miss rate for mini batch of trajectories, with respect to ground truth and given distance threshold
     :param traj: predictions, shape [batch_size, num_modes, sequence_length, 2]
@@ -162,11 +175,22 @@ def traj_nll(pred_dist: torch.Tensor, traj_gt: torch.Tensor, masks: torch.Tensor
     rho = pred_dist[:, :, 4]
     ohr = torch.pow(1 - torch.pow(rho, 2), -0.5)
 
-    nll = 0.5 * torch.pow(ohr, 2) * \
-        (torch.pow(sig_x, 2) * torch.pow(x - mu_x, 2) +
-         torch.pow(sig_y, 2) * torch.pow(y - mu_y, 2) -
-         2 * rho * torch.pow(sig_x, 1) * torch.pow(sig_y, 1) * (x - mu_x) * (y - mu_y))\
-        - torch.log(sig_x * sig_y * ohr) + 1.8379
+    nll = (
+        0.5
+        * torch.pow(ohr, 2)
+        * (
+            torch.pow(sig_x, 2) * torch.pow(x - mu_x, 2)
+            + torch.pow(sig_y, 2) * torch.pow(y - mu_y, 2)
+            - 2
+            * rho
+            * torch.pow(sig_x, 1)
+            * torch.pow(sig_y, 1)
+            * (x - mu_x)
+            * (y - mu_y)
+        )
+        - torch.log(sig_x * sig_y * ohr)
+        + 1.8379
+    )
 
     nll[nll.isnan()] = 0
     nll[nll.isinf()] = 0

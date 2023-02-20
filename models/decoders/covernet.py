@@ -7,7 +7,6 @@ from typing import Dict
 
 
 class CoverNet(PredictionDecoder):
-
     def __init__(self, args):
         """
         Prediction decoder for CoverNet
@@ -21,14 +20,16 @@ class CoverNet(PredictionDecoder):
 
         super().__init__()
 
-        self.agg_type = args['agg_type']
-        self.num_modes = args['num_modes']
-        self.hidden = nn.Linear(args['encoding_size'], args['hidden_size'])
-        self.op_len = args['op_len']
-        self.prob_op = nn.Linear(args['hidden_size'], self.num_modes)
+        self.agg_type = args["agg_type"]
+        self.num_modes = args["num_modes"]
+        self.hidden = nn.Linear(args["encoding_size"], args["hidden_size"])
+        self.op_len = args["op_len"]
+        self.prob_op = nn.Linear(args["hidden_size"], self.num_modes)
         self.leaky_relu = nn.LeakyReLU(0.01)
         self.log_softmax = nn.LogSoftmax(dim=1)
-        self.anchors = nn.Parameter(torch.zeros(self.num_modes, self.op_len, 2), requires_grad=False)
+        self.anchors = nn.Parameter(
+            torch.zeros(self.num_modes, self.op_len, 2), requires_grad=False
+        )
 
     def generate_anchors(self, ds: SingleAgentDataset):
         """
@@ -50,6 +51,6 @@ class CoverNet(PredictionDecoder):
         probs = self.log_softmax(self.prob_op(h))
         probs = probs.squeeze(dim=-1)
         traj = self.anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1)
-        predictions = {'traj': traj, 'probs': probs}
+        predictions = {"traj": traj, "probs": probs}
 
         return predictions

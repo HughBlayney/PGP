@@ -10,11 +10,13 @@ class MissRateK(Metric):
     """
 
     def __init__(self, args: Dict):
-        self.k = args['k']
-        self.dist_thresh = args['dist_thresh']
-        self.name = 'miss_rate_' + str(self.k)
+        self.k = args["k"]
+        self.dist_thresh = args["dist_thresh"]
+        self.name = "miss_rate_" + str(self.k)
 
-    def compute(self, predictions: Dict, ground_truth: Union[Dict, torch.Tensor]) -> torch.Tensor:
+    def compute(
+        self, predictions: Dict, ground_truth: Union[Dict, torch.Tensor]
+    ) -> torch.Tensor:
         """
         Compute miss rate
         :param predictions: Dictionary with 'traj': predicted trajectories and 'probs': mode probabilities
@@ -22,9 +24,9 @@ class MissRateK(Metric):
         :return:
         """
         # Unpack arguments
-        traj = predictions['traj']
-        probs = predictions['probs']
-        traj_gt = ground_truth['traj'] if type(ground_truth) == dict else ground_truth
+        traj = predictions["traj"]
+        probs = predictions["probs"]
+        traj_gt = ground_truth["traj"] if type(ground_truth) == dict else ground_truth
 
         # Useful params
         batch_size = probs.shape[0]
@@ -32,8 +34,11 @@ class MissRateK(Metric):
         sequence_length = traj.shape[2]
 
         # Masks for variable length ground truth trajectories
-        masks = ground_truth['masks'] if type(ground_truth) == dict and 'masks' in ground_truth.keys() \
+        masks = (
+            ground_truth["masks"]
+            if type(ground_truth) == dict and "masks" in ground_truth.keys()
             else torch.zeros(batch_size, sequence_length).to(traj.device)
+        )
 
         min_k = min(self.k, num_pred_modes)
 

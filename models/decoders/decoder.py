@@ -6,7 +6,9 @@ import os
 
 
 # Initialize device:
-device = torch.device(os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu")
+device = torch.device(
+    os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu"
+)
 
 
 class PredictionDecoder(nn.Module):
@@ -19,7 +21,9 @@ class PredictionDecoder(nn.Module):
         super().__init__()
 
     @abc.abstractmethod
-    def forward(self, agg_encoding: Union[torch.Tensor, Dict]) -> Union[torch.Tensor, Dict]:
+    def forward(
+        self, agg_encoding: Union[torch.Tensor, Dict]
+    ) -> Union[torch.Tensor, Dict]:
         """
         Forward pass for prediction decoder
         :param agg_encoding: Aggregated context encoding

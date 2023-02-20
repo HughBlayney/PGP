@@ -10,9 +10,13 @@ class PredictionModel(nn.Module):
     """
     Single-agent prediction model
     """
-    def __init__(self, encoder: enc.PredictionEncoder,
-                 aggregator: agg.PredictionAggregator,
-                 decoder: dec.PredictionDecoder):
+
+    def __init__(
+        self,
+        encoder: enc.PredictionEncoder,
+        aggregator: agg.PredictionAggregator,
+        decoder: dec.PredictionDecoder,
+    ):
         """
         Initializes model for single-agent trajectory prediction
         """

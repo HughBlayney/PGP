@@ -7,7 +7,6 @@ from typing import Dict
 
 
 class Multipath(MTP):
-
     def __init__(self, args):
         """
         Prediction decoder for Multipath. Almost identical to MTP, but predicts residuals with respect to anchors,
@@ -15,7 +14,9 @@ class Multipath(MTP):
         """
 
         super().__init__(args)
-        self.anchors = nn.Parameter(torch.zeros(self.num_modes, self.op_len, 2), requires_grad=False)
+        self.anchors = nn.Parameter(
+            torch.zeros(self.num_modes, self.op_len, 2), requires_grad=False
+        )
 
     def generate_anchors(self, ds: SingleAgentDataset):
         """
@@ -34,6 +35,6 @@ class Multipath(MTP):
         """
 
         predictions = super().forward(agg_encoding)
-        predictions['traj'][..., :2] += self.anchors.unsqueeze(0)
+        predictions["traj"][..., :2] += self.anchors.unsqueeze(0)
 
         return predictions
