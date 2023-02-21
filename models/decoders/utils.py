@@ -118,12 +118,14 @@ def cluster_and_rank(k: int, data: np.ndarray):
     return {"lbls": cluster_lbls, "ranks": cluster_ranks, "counts": cluster_cnts}
 
 
-def cluster_traj(k: int, traj: torch.Tensor):
+def cluster_traj(k: int, traj: torch.Tensor, embeddings: torch.Tensor):
     """
     clusters sampled trajectories to output K modes.
     :param k: number of clusters
     :param traj: set of sampled trajectories, shape [batch_size, num_samples, traj_len, 2]
+    :param embeddings: set of sampled embeddings, shape [batch_size, num_samples, embedding_dimension]
     :return: traj_clustered:  set of clustered trajectories, shape [batch_size, k, traj_len, 2]
+             embeddings_clustered: set of averaged embeddings corresponding to the clustered trajectories, shape [batch_size, k, embedding_dimension]
              scores: scores for clustered trajectories (basically 1/rank), shape [batch_size, k]
     """
 
@@ -131,6 +133,7 @@ def cluster_traj(k: int, traj: torch.Tensor):
     batch_size = traj.shape[0]
     num_samples = traj.shape[1]
     traj_len = traj.shape[2]
+    embedding_dimension = embeddings.shape[2]
 
     # Down-sample traj along time dimension for faster clustering
     data = traj[:, :, 0::3, :]
@@ -145,6 +148,12 @@ def cluster_traj(k: int, traj: torch.Tensor):
     cluster_ranks = [cluster_op["ranks"] for cluster_op in cluster_ops]
 
     # Compute mean (clustered) traj and scores
+    embedding_lbls = (
+        torch.as_tensor(cluster_lbls, device=device)
+        .unsqueeze(-1)
+        .repeat(1, 1, embedding_dimension)
+        .long()
+    )
     lbls = (
         torch.as_tensor(cluster_lbls, device=device)
         .unsqueeze(-1)
@@ -152,17 +161,21 @@ def cluster_traj(k: int, traj: torch.Tensor):
         .repeat(1, 1, traj_len, 2)
         .long()
     )
+
     traj_summed = torch.zeros(batch_size, k, traj_len, 2, device=device).scatter_add(
         1, lbls, traj
     )
-    cnt_tensor = (
-        torch.as_tensor(cluster_counts, device=device)
-        .unsqueeze(-1)
-        .unsqueeze(-1)
-        .repeat(1, 1, traj_len, 2)
-    )
+    embeddings_summed = torch.zeros(
+        batch_size, k, embedding_dimension, device=device
+    ).scatter_add(1, embedding_lbls, embeddings)
+
+    embedding_cnt_tensor = torch.as_tensor(cluster_counts, device=device).unsqueeze(-1)
+    cnt_tensor = embedding_cnt_tensor.unsqueeze(-1).repeat(1, 1, traj_len, 2)
+
     traj_clustered = traj_summed / cnt_tensor
+    embeddings_clustered = embeddings_summed / embedding_cnt_tensor
+
     scores = 1 / torch.as_tensor(cluster_ranks, device=device)
     scores = scores / torch.sum(scores, dim=1)[0]
 
-    return traj_clustered, scores
+    return traj_clustered, embeddings_clustered, scores

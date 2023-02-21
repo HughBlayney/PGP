@@ -78,9 +78,15 @@ class LVM(PredictionDecoder):
         traj = traj.reshape(batch_size, self.num_samples, self.op_len, 2)
 
         # Cluster
-        traj_clustered, probs = cluster_traj(self.num_clusters, traj)
+        traj_clustered, embeddings_clustered, probs = cluster_traj(
+            self.num_clusters, traj, agg_encoding
+        )
 
-        predictions = {"traj": traj_clustered, "probs": probs}
+        predictions = {
+            "traj": traj_clustered,
+            "probs": probs,
+            "embed": embeddings_clustered,
+        }
 
         if type(inputs) is dict:
             for key, val in inputs.items():
