@@ -22,12 +22,12 @@ class NuScenesGraphs(NuScenesVector):
         :param args: Dataset arguments
         """
         super().__init__(mode, data_dir, args, helper)
-        self.traversal_horizon = args['traversal_horizon']
+        self.traversal_horizon = args["traversal_horizon"]
 
         # Load dataset stats (max nodes, max agents etc.)
-        if self.mode == 'extract_data':
+        if self.mode == "extract_data":
             stats = self.load_stats()
-            self.max_nbr_nodes = stats['max_nbr_nodes']
+            self.max_nbr_nodes = stats["max_nbr_nodes"]
 
     def compute_stats(self, idx: int) -> Dict[str, int]:
         """
@@ -36,10 +36,10 @@ class NuScenesGraphs(NuScenesVector):
         num_lane_nodes, max_nbr_nodes = self.get_map_representation(idx)
         num_vehicles, num_pedestrians = self.get_surrounding_agent_representation(idx)
         stats = {
-            'num_lane_nodes': num_lane_nodes,
-            'max_nbr_nodes': max_nbr_nodes,
-            'num_vehicles': num_vehicles,
-            'num_pedestrians': num_pedestrians
+            "num_lane_nodes": num_lane_nodes,
+            "max_nbr_nodes": max_nbr_nodes,
+            "num_vehicles": num_vehicles,
+            "num_pedestrians": num_pedestrians,
         }
 
         return stats
@@ -51,19 +51,23 @@ class NuScenesGraphs(NuScenesVector):
         """
         inputs = self.get_inputs(idx)
         ground_truth = self.get_ground_truth(idx)
-        node_seq_gt, evf_gt = self.get_visited_edges(idx, inputs['map_representation'])
-        init_node = self.get_initial_node(inputs['map_representation'])
+        node_seq_gt, evf_gt = self.get_visited_edges(idx, inputs["map_representation"])
+        init_node = self.get_initial_node(inputs["map_representation"])
 
-        ground_truth['evf_gt'] = evf_gt
-        inputs['init_node'] = init_node
-        inputs['node_seq_gt'] = node_seq_gt  # For pretraining with ground truth node sequence
-        data = {'inputs': inputs, 'ground_truth': ground_truth}
+        ground_truth["evf_gt"] = evf_gt
+        inputs["init_node"] = init_node
+        inputs[
+            "node_seq_gt"
+        ] = node_seq_gt  # For pretraining with ground truth node sequence
+        data = {"inputs": inputs, "ground_truth": ground_truth}
         self.save_data(idx, data)
 
     def get_inputs(self, idx: int) -> Dict:
         inputs = super().get_inputs(idx)
-        a_n_masks = self.get_agent_node_masks(inputs['map_representation'], inputs['surrounding_agent_representation'])
-        inputs['agent_node_masks'] = a_n_masks
+        a_n_masks = self.get_agent_node_masks(
+            inputs["map_representation"], inputs["surrounding_agent_representation"]
+        )
+        inputs["agent_node_masks"] = a_n_masks
         return inputs
 
     def get_ground_truth(self, idx: int) -> Dict:
@@ -91,10 +95,14 @@ class NuScenesGraphs(NuScenesVector):
         polygons = self.get_polygons_around_agent(global_pose, map_api)
 
         # Get vectorized representation of lanes
-        lane_node_feats, lane_ids = self.get_lane_node_feats(global_pose, lanes, polygons)
+        lane_node_feats, lane_ids = self.get_lane_node_feats(
+            global_pose, lanes, polygons
+        )
 
         # Discard lanes outside map extent
-        lane_node_feats, lane_ids = self.discard_poses_outside_extent(lane_node_feats, lane_ids)
+        lane_node_feats, lane_ids = self.discard_poses_outside_extent(
+            lane_node_feats, lane_ids
+        )
 
         # Get edges:
         e_succ = self.get_successor_edges(lane_ids, map_api)
@@ -110,8 +118,7 @@ class NuScenesGraphs(NuScenesVector):
             e_prox = [[]]
 
         # While running the dataset class in 'compute_stats' mode:
-        if self.mode == 'compute_stats':
-
+        if self.mode == "compute_stats":
             num_nbrs = [len(e_succ[i]) + len(e_prox[i]) for i in range(len(e_succ))]
             max_nbrs = max(num_nbrs) if len(num_nbrs) > 0 else 0
             num_nodes = len(lane_node_feats)
@@ -122,19 +129,23 @@ class NuScenesGraphs(NuScenesVector):
         s_next, edge_type = self.get_edge_lookup(e_succ, e_prox)
 
         # Convert list of lane node feats to fixed size numpy array and masks
-        lane_node_feats, lane_node_masks = self.list_to_tensor(lane_node_feats, self.max_nodes, self.polyline_length, 6)
+        lane_node_feats, lane_node_masks = self.list_to_tensor(
+            lane_node_feats, self.max_nodes, self.polyline_length, 6
+        )
 
         map_representation = {
-            'lane_node_feats': lane_node_feats,
-            'lane_node_masks': lane_node_masks,
-            's_next': s_next,
-            'edge_type': edge_type
+            "lane_node_feats": lane_node_feats,
+            "lane_node_masks": lane_node_masks,
+            "s_next": s_next,
+            "edge_type": edge_type,
         }
 
         return map_representation
 
     @staticmethod
-    def get_successor_edges(lane_ids: List[str], map_api: NuScenesMap) -> List[List[int]]:
+    def get_successor_edges(
+        lane_ids: List[str], map_api: NuScenesMap
+    ) -> List[List[int]]:
         """
         Returns successor edge list for each node
         """
@@ -154,24 +165,37 @@ class NuScenesGraphs(NuScenesVector):
         return e_succ
 
     @staticmethod
-    def get_proximal_edges(lane_node_feats: List[np.ndarray], e_succ: List[List[int]],
-                           dist_thresh=4, yaw_thresh=np.pi/4) -> List[List[int]]:
+    def get_proximal_edges(
+        lane_node_feats: List[np.ndarray],
+        e_succ: List[List[int]],
+        dist_thresh=4,
+        yaw_thresh=np.pi / 4,
+    ) -> List[List[int]]:
         """
         Returns proximal edge list for each node
         """
         e_prox = [[] for _ in lane_node_feats]
         for src_node_id, src_node_feats in enumerate(lane_node_feats):
             for dest_node_id in range(src_node_id + 1, len(lane_node_feats)):
-                if dest_node_id not in e_succ[src_node_id] and src_node_id not in e_succ[dest_node_id]:
+                if (
+                    dest_node_id not in e_succ[src_node_id]
+                    and src_node_id not in e_succ[dest_node_id]
+                ):
                     dest_node_feats = lane_node_feats[dest_node_id]
                     pairwise_dist = cdist(src_node_feats[:, :2], dest_node_feats[:, :2])
                     min_dist = np.min(pairwise_dist)
                     if min_dist <= dist_thresh:
-                        yaw_src = np.arctan2(np.mean(np.sin(src_node_feats[:, 2])),
-                                             np.mean(np.cos(src_node_feats[:, 2])))
-                        yaw_dest = np.arctan2(np.mean(np.sin(dest_node_feats[:, 2])),
-                                              np.mean(np.cos(dest_node_feats[:, 2])))
-                        yaw_diff = np.arctan2(np.sin(yaw_src-yaw_dest), np.cos(yaw_src-yaw_dest))
+                        yaw_src = np.arctan2(
+                            np.mean(np.sin(src_node_feats[:, 2])),
+                            np.mean(np.cos(src_node_feats[:, 2])),
+                        )
+                        yaw_dest = np.arctan2(
+                            np.mean(np.sin(dest_node_feats[:, 2])),
+                            np.mean(np.cos(dest_node_feats[:, 2])),
+                        )
+                        yaw_diff = np.arctan2(
+                            np.sin(yaw_src - yaw_dest), np.cos(yaw_src - yaw_dest)
+                        )
                         if np.absolute(yaw_diff) <= yaw_thresh:
                             e_prox[src_node_id].append(dest_node_id)
                             e_prox[dest_node_id].append(src_node_id)
@@ -186,8 +210,10 @@ class NuScenesGraphs(NuScenesVector):
         """
         for n, lane_node_feat_array in enumerate(lane_node_feats):
             flag = 1 if len(e_succ[n]) == 0 else 0
-            lane_node_feats[n] = np.concatenate((lane_node_feat_array, flag * np.ones((len(lane_node_feat_array), 1))),
-                                                axis=1)
+            lane_node_feats[n] = np.concatenate(
+                (lane_node_feat_array, flag * np.ones((len(lane_node_feat_array), 1))),
+                axis=1,
+            )
 
         return lane_node_feats
 
@@ -239,21 +265,28 @@ class NuScenesGraphs(NuScenesVector):
         """
 
         # Unpack lane node poses
-        node_feats = lane_graph['lane_node_feats']
-        node_feat_lens = np.sum(1 - lane_graph['lane_node_masks'][:, :, 0], axis=1)
+        node_feats = lane_graph["lane_node_feats"]
+        node_feat_lens = np.sum(1 - lane_graph["lane_node_masks"][:, :, 0], axis=1)
         node_poses = []
         for i, node_feat in enumerate(node_feats):
             if node_feat_lens[i] != 0:
-                node_poses.append(node_feat[:int(node_feat_lens[i]), :3])
+                node_poses.append(node_feat[: int(node_feat_lens[i]), :3])
 
-        assigned_nodes = self.assign_pose_to_node(node_poses, np.asarray([0, 0, 0]), dist_thresh=3,
-                                                  yaw_thresh=np.pi / 4, return_multiple=True)
+        assigned_nodes = self.assign_pose_to_node(
+            node_poses,
+            np.asarray([0, 0, 0]),
+            dist_thresh=3,
+            yaw_thresh=np.pi / 4,
+            return_multiple=True,
+        )
 
         init_node = np.zeros(self.max_nodes)
-        init_node[assigned_nodes] = 1/len(assigned_nodes)
+        init_node[assigned_nodes] = 1 / len(assigned_nodes)
         return init_node
 
-    def get_visited_edges(self, idx: int, lane_graph: Dict) -> Tuple[np.ndarray, np.ndarray]:
+    def get_visited_edges(
+        self, idx: int, lane_graph: Dict
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns nodes and edges of the lane graph visited by the actual target vehicle in the future. This serves as
         ground truth for training the graph traversal policy pi_route.
@@ -265,15 +298,15 @@ class NuScenesGraphs(NuScenesVector):
         """
 
         # Unpack lane graph dictionary
-        node_feats = lane_graph['lane_node_feats']
-        s_next = lane_graph['s_next']
-        edge_type = lane_graph['edge_type']
+        node_feats = lane_graph["lane_node_feats"]
+        s_next = lane_graph["s_next"]
+        edge_type = lane_graph["edge_type"]
 
-        node_feat_lens = np.sum(1 - lane_graph['lane_node_masks'][:, :, 0], axis=1)
+        node_feat_lens = np.sum(1 - lane_graph["lane_node_masks"][:, :, 0], axis=1)
         node_poses = []
         for i, node_feat in enumerate(node_feats):
             if node_feat_lens[i] != 0:
-                node_poses.append(node_feat[:int(node_feat_lens[i]), :3])
+                node_poses.append(node_feat[: int(node_feat_lens[i]), :3])
 
         # Initialize outputs
         current_step = 0
@@ -295,7 +328,9 @@ class NuScenesGraphs(NuScenesVector):
         # Compute yaw values for future:
         fut_yaw = np.zeros(len(fut_xy))
         for n in range(1, len(fut_yaw)):
-            fut_yaw[n] = -np.arctan2(fut_xy[n, 0] - fut_xy[n-1, 0], fut_xy[n, 1] - fut_xy[n-1, 1])
+            fut_yaw[n] = -np.arctan2(
+                fut_xy[n, 0] - fut_xy[n - 1, 0], fut_xy[n, 1] - fut_xy[n - 1, 1]
+            )
 
         # Loop over future trajectory poses
         query_pose = np.asarray([fut_xy[0, 0], fut_xy[0, 1], fut_yaw[0]])
@@ -303,19 +338,25 @@ class NuScenesGraphs(NuScenesVector):
         node_seq[current_step] = current_node
         for n in range(1, len(fut_xy)):
             query_pose = np.asarray([fut_xy[n, 0], fut_xy[n, 1], fut_yaw[n]])
-            dist_from_current_node = np.min(np.linalg.norm(node_poses[current_node][:, :2] - query_pose[:2], axis=1))
+            dist_from_current_node = np.min(
+                np.linalg.norm(node_poses[current_node][:, :2] - query_pose[:2], axis=1)
+            )
 
             # If pose has deviated sufficiently from current node and is within area of interest, assign to a new node
             padding = self.polyline_length * self.polyline_resolution / 2
-            if self.map_extent[0] - padding <= query_pose[0] <= self.map_extent[1] + padding and \
-                    self.map_extent[2] - padding <= query_pose[1] <= self.map_extent[3] + padding:
-
+            if (
+                self.map_extent[0] - padding
+                <= query_pose[0]
+                <= self.map_extent[1] + padding
+                and self.map_extent[2] - padding
+                <= query_pose[1]
+                <= self.map_extent[3] + padding
+            ):
                 if dist_from_current_node >= 1.5:
                     assigned_node = self.assign_pose_to_node(node_poses, query_pose)
 
                     # Assign new node to node sequence and edge to visited edges
                     if assigned_node != current_node:
-
                         if assigned_node in s_next[current_node]:
                             nbr_idx = np.where(s_next[current_node] == assigned_node)[0]
                             nbr_valid = np.where(edge_type[current_node] > 0)[0]
@@ -325,7 +366,7 @@ class NuScenesGraphs(NuScenesVector):
                                 evf[current_node, nbr_idx] = 1
 
                         current_node = assigned_node
-                        if current_step < self.traversal_horizon-1:
+                        if current_step < self.traversal_horizon - 1:
                             current_step += 1
                             node_seq[current_step] = current_node
 
@@ -334,13 +375,19 @@ class NuScenesGraphs(NuScenesVector):
 
         # Assign goal node and edge
         goal_node = current_node + self.max_nodes
-        node_seq[current_step + 1:] = goal_node
+        node_seq[current_step + 1 :] = goal_node
         evf[current_node, -1] = 1
 
         return node_seq, evf
 
     @staticmethod
-    def assign_pose_to_node(node_poses, query_pose, dist_thresh=5, yaw_thresh=np.pi/3, return_multiple=False):
+    def assign_pose_to_node(
+        node_poses,
+        query_pose,
+        dist_thresh=5,
+        yaw_thresh=np.pi / 3,
+        return_multiple=False,
+    ):
         """
         Assigns a given agent pose to a lane node. Takes into account distance from the lane centerline as well as
         direction of motion.
@@ -354,7 +401,9 @@ class NuScenesGraphs(NuScenesVector):
             idx = np.argmin(distances)
             yaw_lane = node_poses[i][idx, 2]
             yaw_query = query_pose[2]
-            yaw_diffs.append(np.arctan2(np.sin(yaw_lane - yaw_query), np.cos(yaw_lane - yaw_query)))
+            yaw_diffs.append(
+                np.arctan2(np.sin(yaw_lane - yaw_query), np.cos(yaw_lane - yaw_query))
+            )
 
         idcs_yaw = np.where(np.absolute(np.asarray(yaw_diffs)) <= yaw_thresh)[0]
         idcs_dist = np.where(np.asarray(dist_vals) <= dist_thresh)[0]
@@ -378,12 +427,12 @@ class NuScenesGraphs(NuScenesVector):
         the lane node are masked. The idea is to incorporate local agent context at each lane node.
         """
 
-        lane_node_feats = hd_map['lane_node_feats']
-        lane_node_masks = hd_map['lane_node_masks']
-        vehicle_feats = agents['vehicles']
-        vehicle_masks = agents['vehicle_masks']
-        ped_feats = agents['pedestrians']
-        ped_masks = agents['pedestrian_masks']
+        lane_node_feats = hd_map["lane_node_feats"]
+        lane_node_masks = hd_map["lane_node_masks"]
+        vehicle_feats = agents["vehicles"]
+        vehicle_masks = agents["vehicle_masks"]
+        ped_feats = agents["pedestrians"]
+        ped_masks = agents["pedestrian_masks"]
 
         vehicle_node_masks = np.ones((len(lane_node_feats), len(vehicle_feats)))
         ped_node_masks = np.ones((len(lane_node_feats), len(ped_feats)))
@@ -407,7 +456,10 @@ class NuScenesGraphs(NuScenesVector):
                         if dist <= dist_thresh:
                             ped_node_masks[i, j] = 0
 
-        agent_node_masks = {'vehicles': vehicle_node_masks, 'pedestrians': ped_node_masks}
+        agent_node_masks = {
+            "vehicles": vehicle_node_masks,
+            "pedestrians": ped_node_masks,
+        }
         return agent_node_masks
 
     def visualize_graph(self, node_feats, s_next, edge_type, evf_gt, node_seq, fut_xy):
@@ -415,7 +467,7 @@ class NuScenesGraphs(NuScenesVector):
         Function to visualize lane graph.
         """
         fig, ax = plt.subplots()
-        ax.imshow(np.zeros((3, 3)), extent=self.map_extent, cmap='gist_gray')
+        ax.imshow(np.zeros((3, 3)), extent=self.map_extent, cmap="gist_gray")
 
         # Plot edges
         for src_id, src_feats in enumerate(node_feats):
@@ -429,20 +481,31 @@ class NuScenesGraphs(NuScenesVector):
                     edge_t = edge_type[src_id, idx]
                     visited = evf_gt[src_id, idx]
                     if 3 > edge_t > 0:
-
                         dest_feats = node_feats[int(dest_id)]
-                        feat_len_dest = np.sum(np.sum(np.absolute(dest_feats), axis=1) != 0)
+                        feat_len_dest = np.sum(
+                            np.sum(np.absolute(dest_feats), axis=1) != 0
+                        )
                         dest_x = np.mean(dest_feats[:feat_len_dest, 0])
                         dest_y = np.mean(dest_feats[:feat_len_dest, 1])
                         d_x = dest_x - src_x
                         d_y = dest_y - src_y
 
-                        line_style = '-' if edge_t == 1 else '--'
+                        line_style = "-" if edge_t == 1 else "--"
                         width = 2 if visited else 0.01
                         alpha = 1 if visited else 0.5
 
-                        plt.arrow(src_x, src_y, d_x, d_y, color='w', head_width=0.1, length_includes_head=True,
-                                  linestyle=line_style, width=width, alpha=alpha)
+                        plt.arrow(
+                            src_x,
+                            src_y,
+                            d_x,
+                            d_y,
+                            color="w",
+                            head_width=0.1,
+                            length_includes_head=True,
+                            linestyle=line_style,
+                            width=width,
+                            alpha=alpha,
+                        )
 
         # Plot nodes
         for node_id, node_feat in enumerate(node_feats):
@@ -451,13 +514,15 @@ class NuScenesGraphs(NuScenesVector):
                 visited = node_id in node_seq
                 x = np.mean(node_feat[:feat_len, 0])
                 y = np.mean(node_feat[:feat_len, 1])
-                yaw = np.arctan2(np.mean(np.sin(node_feat[:feat_len, 2])),
-                                 np.mean(np.cos(node_feat[:feat_len, 2])))
+                yaw = np.arctan2(
+                    np.mean(np.sin(node_feat[:feat_len, 2])),
+                    np.mean(np.cos(node_feat[:feat_len, 2])),
+                )
                 c = color_by_yaw(0, yaw)
                 c = np.asarray(c).reshape(-1, 3) / 255
                 s = 200 if visited else 50
                 ax.scatter(x, y, s, c=c)
 
-        plt.plot(fut_xy[:, 0], fut_xy[:, 1], color='r', lw=3)
+        plt.plot(fut_xy[:, 0], fut_xy[:, 1], color="r", lw=3)
 
         plt.show()

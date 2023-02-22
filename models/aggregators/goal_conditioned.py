@@ -3,10 +3,12 @@ import torch.nn as nn
 from models.aggregators.global_attention import GlobalAttention
 from typing import Dict
 from torch.distributions import Categorical
-
+import os
 
 # Initialize device:
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(
+    os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu"
+)
 
 
 class GoalConditioned(GlobalAttention):
@@ -37,15 +39,18 @@ class GoalConditioned(GlobalAttention):
         super(GoalConditioned, self).__init__(args)
 
         # Goal prediction header
-        self.goal_h1 = nn.Linear(args['context_enc_size'] + args['target_agent_enc_size'], args['goal_h1_size'])
-        self.goal_h2 = nn.Linear(args['goal_h1_size'], args['goal_h2_size'])
-        self.goal_op = nn.Linear(args['goal_h2_size'], 1)
-        self.num_samples = args['num_samples']
+        self.goal_h1 = nn.Linear(
+            args["context_enc_size"] + args["target_agent_enc_size"],
+            args["goal_h1_size"],
+        )
+        self.goal_h2 = nn.Linear(args["goal_h1_size"], args["goal_h2_size"])
+        self.goal_op = nn.Linear(args["goal_h2_size"], 1)
+        self.num_samples = args["num_samples"]
         self.leaky_relu = nn.LeakyReLU()
         self.log_softmax = nn.LogSoftmax(dim=1)
 
         # Pretraining
-        self.pre_train = args['pre_train']
+        self.pre_train = args["pre_train"]
 
     def forward(self, encodings: Dict) -> Dict:
         """
@@ -57,32 +62,44 @@ class GoalConditioned(GlobalAttention):
         """
 
         # Unpack encodings:
-        target_agent_encoding = encodings['target_agent_encoding']
-        node_encodings = encodings['context_encoding']['combined']
-        node_masks = encodings['context_encoding']['combined_masks']
+        target_agent_encoding = encodings["target_agent_encoding"]
+        node_encodings = encodings["context_encoding"]["combined"]
+        node_masks = encodings["context_encoding"]["combined_masks"]
 
         # Predict goal log-probabilities
-        goal_log_probs = self.compute_goal_probs(target_agent_encoding, node_encodings, node_masks)
+        goal_log_probs = self.compute_goal_probs(
+            target_agent_encoding, node_encodings, node_masks
+        )
 
         # If pretraining model, use ground truth goals
         if self.pre_train and self.training:
             max_nodes = node_masks.shape[1]
-            goals = encodings['node_seq_gt'][:, -1].unsqueeze(1).repeat(1, self.num_samples).long() - max_nodes
+            goals = (
+                encodings["node_seq_gt"][:, -1]
+                .unsqueeze(1)
+                .repeat(1, self.num_samples)
+                .long()
+                - max_nodes
+            )
         else:
             # If fine-tuning or validating, sample goals
-            goals = Categorical(torch.exp(goal_log_probs).unsqueeze(1).repeat(1, self.num_samples, 1)).sample()
+            goals = Categorical(
+                torch.exp(goal_log_probs).unsqueeze(1).repeat(1, self.num_samples, 1)
+            ).sample()
 
         # Aggregate context
         agg_enc = super(GoalConditioned, self).forward(encodings)
 
         # Repeat context vector for number of samples and append goal encodings
         agg_enc = agg_enc.unsqueeze(1).repeat(1, self.num_samples, 1)
-        batch_indices = torch.arange(agg_enc.shape[0]).unsqueeze(1).repeat(1, self.num_samples)
+        batch_indices = (
+            torch.arange(agg_enc.shape[0]).unsqueeze(1).repeat(1, self.num_samples)
+        )
         goal_encodings = node_encodings[batch_indices, goals]
         agg_enc = torch.cat((agg_enc, goal_encodings), dim=2)
 
         # Return outputs
-        outputs = {'agg_encoding': agg_enc, 'goal_log_probs': goal_log_probs}
+        outputs = {"agg_encoding": agg_enc, "goal_log_probs": goal_log_probs}
 
         return outputs
 
@@ -100,17 +117,23 @@ class GoalConditioned(GlobalAttention):
         node_enc_size = node_encodings.shape[-1]
 
         # Concatenate node encodings with target agent encoding
-        target_agent_encoding = target_agent_encoding.unsqueeze(1).repeat(1, max_nodes, 1)
+        target_agent_encoding = target_agent_encoding.unsqueeze(1).repeat(
+            1, max_nodes, 1
+        )
         enc = torch.cat((target_agent_encoding, node_encodings), dim=2)
 
         # Form a single batch of encodings
         masks_goal = ~node_masks.unsqueeze(-1).bool()
-        enc_batched = torch.masked_select(enc, masks_goal).reshape(-1, target_agent_enc_size + node_enc_size)
+        enc_batched = torch.masked_select(enc, masks_goal).reshape(
+            -1, target_agent_enc_size + node_enc_size
+        )
 
         # Compute goal log probabilities
-        goal_ops_ = self.goal_op(self.leaky_relu(self.goal_h2(self.leaky_relu(self.goal_h1(enc_batched)))))
+        goal_ops_ = self.goal_op(
+            self.leaky_relu(self.goal_h2(self.leaky_relu(self.goal_h1(enc_batched))))
+        )
         goal_ops = torch.zeros_like(masks_goal).float()
         goal_ops = goal_ops.masked_scatter_(masks_goal, goal_ops_).squeeze(-1)
-        goal_log_probs = self.log_softmax(goal_ops + torch.log(1-node_masks))
+        goal_log_probs = self.log_softmax(goal_ops + torch.log(1 - node_masks))
 
         return goal_log_probs

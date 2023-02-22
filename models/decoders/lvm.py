@@ -3,14 +3,16 @@ import torch
 import torch.nn as nn
 from typing import Dict, Union
 from models.decoders.utils import cluster_traj
+import os
 
 
 # Initialize device:
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(
+    os.environ.get("GPU", "cuda:0") if torch.cuda.is_available() else "cpu"
+)
 
 
 class LVM(PredictionDecoder):
-
     def __init__(self, args):
         """
         Latent variable conditioned decoder.
@@ -26,14 +28,16 @@ class LVM(PredictionDecoder):
 
         """
         super().__init__()
-        self.agg_type = args['agg_type']
-        self.num_samples = args['num_samples']
-        self.op_len = args['op_len']
-        self.lv_dim = args['lv_dim']
-        self.hidden = nn.Linear(args['encoding_size'] + args['lv_dim'], args['hidden_size'])
-        self.op_traj = nn.Linear(args['hidden_size'], args['op_len'] * 2)
+        self.agg_type = args["agg_type"]
+        self.num_samples = args["num_samples"]
+        self.op_len = args["op_len"]
+        self.lv_dim = args["lv_dim"]
+        self.hidden = nn.Linear(
+            args["encoding_size"] + args["lv_dim"], args["hidden_size"]
+        )
+        self.op_traj = nn.Linear(args["hidden_size"], args["op_len"] * 2)
         self.leaky_relu = nn.LeakyReLU()
-        self.num_clusters = args['num_clusters']
+        self.num_clusters = args["num_clusters"]
 
     def forward(self, inputs: Union[Dict, torch.Tensor]) -> Dict:
         """
@@ -48,13 +52,20 @@ class LVM(PredictionDecoder):
         if type(inputs) is torch.Tensor:
             agg_encoding = inputs
         else:
-            agg_encoding = inputs['agg_encoding']
+            agg_encoding = inputs["agg_encoding"]
 
-        if self.agg_type == 'combined':
+        if self.agg_type == "combined":
             agg_encoding = agg_encoding.unsqueeze(1).repeat(1, self.num_samples, 1)
         else:
-            if len(agg_encoding.shape) != 3 or agg_encoding.shape[1] != self.num_samples:
-                raise Exception('Expected ' + str(self.num_samples) + 'encodings for each train/val data')
+            if (
+                len(agg_encoding.shape) != 3
+                or agg_encoding.shape[1] != self.num_samples
+            ):
+                raise Exception(
+                    "Expected "
+                    + str(self.num_samples)
+                    + "encodings for each train/val data"
+                )
 
         # Sample latent variable and concatenate with aggregated encoding
         batch_size = agg_encoding.shape[0]
@@ -67,13 +78,19 @@ class LVM(PredictionDecoder):
         traj = traj.reshape(batch_size, self.num_samples, self.op_len, 2)
 
         # Cluster
-        traj_clustered, probs = cluster_traj(self.num_clusters, traj)
+        traj_clustered, embeddings_clustered, probs = cluster_traj(
+            self.num_clusters, traj, agg_encoding
+        )
 
-        predictions = {'traj': traj_clustered, 'probs': probs}
+        predictions = {
+            "traj": traj_clustered,
+            "probs": probs,
+            "embed": embeddings_clustered,
+        }
 
         if type(inputs) is dict:
             for key, val in inputs.items():
-                if key != 'agg_encoding':
+                if key != "agg_encoding":
                     predictions[key] = val
 
         return predictions

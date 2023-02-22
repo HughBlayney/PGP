@@ -25,11 +25,13 @@ class NuScenesTrajectories(SingleAgentDataset):
         self.helper = helper
 
         # nuScenes sample and instance tokens for prediction challenge
-        self.token_list = get_prediction_challenge_split(args['split'], dataroot=helper.data.dataroot)
+        self.token_list = get_prediction_challenge_split(
+            args["split"], dataroot=helper.data.dataroot
+        )
 
         # Past and prediction horizons
-        self.t_h = args['t_h']
-        self.t_f = args['t_f']
+        self.t_h = args["t_h"]
+        self.t_f = args["t_f"]
 
     def __len__(self):
         """
@@ -45,13 +47,17 @@ class NuScenesTrajectories(SingleAgentDataset):
         """
         i_t, s_t = self.token_list[idx].split("_")
         map_representation = self.get_map_representation(idx)
-        surrounding_agent_representation = self.get_surrounding_agent_representation(idx)
+        surrounding_agent_representation = self.get_surrounding_agent_representation(
+            idx
+        )
         target_agent_representation = self.get_target_agent_representation(idx)
-        inputs = {'instance_token': i_t,
-                  'sample_token': s_t,
-                  'map_representation': map_representation,
-                  'surrounding_agent_representation': surrounding_agent_representation,
-                  'target_agent_representation': target_agent_representation}
+        inputs = {
+            "instance_token": i_t,
+            "sample_token": s_t,
+            "map_representation": map_representation,
+            "surrounding_agent_representation": surrounding_agent_representation,
+            "target_agent_representation": target_agent_representation,
+        }
         return inputs
 
     def get_ground_truth(self, idx: int) -> Dict:
@@ -61,7 +67,7 @@ class NuScenesTrajectories(SingleAgentDataset):
         :return ground_truth: Dictionary with grund truth labels
         """
         target_agent_future = self.get_target_agent_future(idx)
-        ground_truth = {'traj': target_agent_future}
+        ground_truth = {"traj": target_agent_future}
         return ground_truth
 
     def save_data(self, idx: int, data: Dict):
@@ -70,8 +76,8 @@ class NuScenesTrajectories(SingleAgentDataset):
         :param idx: data index
         :param data: pre-processed data
         """
-        filename = os.path.join(self.data_dir, self.token_list[idx] + '.pickle')
-        with open(filename, 'wb') as handle:
+        filename = os.path.join(self.data_dir, self.token_list[idx] + ".pickle")
+        with open(filename, "wb") as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_data(self, idx: int) -> Dict:
@@ -80,12 +86,14 @@ class NuScenesTrajectories(SingleAgentDataset):
         :param idx: data index
         :return data: Dictionary with batched tensors
         """
-        filename = os.path.join(self.data_dir, self.token_list[idx] + '.pickle')
+        filename = os.path.join(self.data_dir, self.token_list[idx] + ".pickle")
 
         if not os.path.isfile(filename):
-            raise Exception('Could not find data. Please run the dataset in extract_data mode')
+            raise Exception(
+                "Could not find data. Please run the dataset in extract_data mode"
+            )
 
-        with open(filename, 'rb') as handle:
+        with open(filename, "rb") as handle:
             data = pickle.load(handle)
         return data
 
@@ -96,7 +104,9 @@ class NuScenesTrajectories(SingleAgentDataset):
         :return fut: future trajectory for target agent, shape: [t_f * 2, 2]
         """
         i_t, s_t = self.token_list[idx].split("_")
-        fut = self.helper.get_future_for_agent(i_t, s_t, seconds=self.t_f, in_agent_frame=True)
+        fut = self.helper.get_future_for_agent(
+            i_t, s_t, seconds=self.t_f, in_agent_frame=True
+        )
 
         return fut
 

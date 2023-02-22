@@ -7,6 +7,7 @@ class PredictionEncoder(nn.Module):
     """
     Base class for encoders for single agent prediction.
     """
+
     def __init__(self):
         super().__init__()
 

@@ -7,7 +7,6 @@ from typing import Dict, Tuple
 
 # TODO (WiP): Test with different datasets, visualize results.
 class PolylineSubgraphs(PredictionEncoder):
-
     def __init__(self, args: Dict):
         """
         Polyline subgraph encoder from VectorNet (Gao et al., CVPR 2020).
@@ -25,10 +24,10 @@ class PolylineSubgraphs(PredictionEncoder):
 
         """
         super().__init__()
-        self.num_layers = args['num_layers']
-        self.mlp_size = args['mlp_size']
-        self.lane_feat_size = args['lane_feat_size']
-        self.agent_feat_size = args['agent_feat_size']
+        self.num_layers = args["num_layers"]
+        self.mlp_size = args["mlp_size"]
+        self.lane_feat_size = args["lane_feat_size"]
+        self.agent_feat_size = args["agent_feat_size"]
 
         # Encoder layers
 
@@ -49,9 +48,13 @@ class PolylineSubgraphs(PredictionEncoder):
             target_agent_encoders.append(nn.Linear(self.mlp_size * 2, self.mlp_size))
         self.target_agent_encoders = nn.ModuleList(target_agent_encoders)
 
-        surrounding_vehicle_encoders = [nn.Linear(self.agent_feat_size + 2, self.mlp_size)]
+        surrounding_vehicle_encoders = [
+            nn.Linear(self.agent_feat_size + 2, self.mlp_size)
+        ]
         for n in range(1, self.num_layers):
-            surrounding_vehicle_encoders.append(nn.Linear(self.mlp_size * 2, self.mlp_size))
+            surrounding_vehicle_encoders.append(
+                nn.Linear(self.mlp_size * 2, self.mlp_size)
+            )
         self.surrounding_vehicle_encoders = nn.ModuleList(surrounding_vehicle_encoders)
 
         surrounding_ped_encoders = [nn.Linear(self.agent_feat_size + 2, self.mlp_size)]
@@ -64,19 +67,23 @@ class PolylineSubgraphs(PredictionEncoder):
         self.relu = nn.ReLU()
 
     def forward(self, inputs: Dict) -> Dict:
-
-        target_agent_feats = inputs['target_agent_representation']
-        lane_feats = inputs['map_representation']['lane_node_feats']
-        lane_masks = inputs['map_representation']['lane_node_masks']
-        vehicle_feats = inputs['surrounding_agent_representation']['vehicles']
-        vehicle_masks = inputs['surrounding_agent_representation']['vehicle_masks']
-        ped_feats = inputs['surrounding_agent_representation']['pedestrians']
-        ped_masks = inputs['surrounding_agent_representation']['pedestrian_masks']
+        target_agent_feats = inputs["target_agent_representation"]
+        lane_feats = inputs["map_representation"]["lane_node_feats"]
+        lane_masks = inputs["map_representation"]["lane_node_masks"]
+        vehicle_feats = inputs["surrounding_agent_representation"]["vehicles"]
+        vehicle_masks = inputs["surrounding_agent_representation"]["vehicle_masks"]
+        ped_feats = inputs["surrounding_agent_representation"]["pedestrians"]
+        ped_masks = inputs["surrounding_agent_representation"]["pedestrian_masks"]
 
         # Encode target agent
-        target_agent_feats = self.convert2vectornet_feat_format(target_agent_feats.unsqueeze(1))
-        target_agent_enc, _ = self.encode(self.target_agent_encoders, target_agent_feats,
-                                          torch.zeros_like(target_agent_feats))
+        target_agent_feats = self.convert2vectornet_feat_format(
+            target_agent_feats.unsqueeze(1)
+        )
+        target_agent_enc, _ = self.encode(
+            self.target_agent_encoders,
+            target_agent_feats,
+            torch.zeros_like(target_agent_feats),
+        )
         target_agent_enc = target_agent_enc.squeeze(1)
 
         # Encode lanes
@@ -87,28 +94,38 @@ class PolylineSubgraphs(PredictionEncoder):
         # Encode surrounding agents
         vehicle_feats = self.convert2vectornet_feat_format(vehicle_feats)
         vehicle_masks = vehicle_masks[:, :, :-1, :]
-        vehicle_enc, vehicle_masks = self.encode(self.surrounding_vehicle_encoders, vehicle_feats, vehicle_masks)
+        vehicle_enc, vehicle_masks = self.encode(
+            self.surrounding_vehicle_encoders, vehicle_feats, vehicle_masks
+        )
         ped_feats = self.convert2vectornet_feat_format(ped_feats)
         ped_masks = ped_masks[:, :, :-1, :]
-        ped_enc, ped_masks = self.encode(self.surrounding_ped_encoders, ped_feats, ped_masks)
+        ped_enc, ped_masks = self.encode(
+            self.surrounding_ped_encoders, ped_feats, ped_masks
+        )
 
         # Return encodings
-        encodings = {'target_agent_encoding': target_agent_enc,
-                     'context_encoding': {'combined': None,
-                                          'combined_masks': None,
-                                          'map': lane_enc,
-                                          'vehicles': vehicle_enc,
-                                          'pedestrians': ped_enc,
-                                          'map_masks': lane_masks,
-                                          'vehicle_masks': vehicle_masks,
-                                          'pedestrian_masks': ped_masks
-                                          },
-                     }
+        encodings = {
+            "target_agent_encoding": target_agent_enc,
+            "context_encoding": {
+                "combined": None,
+                "combined_masks": None,
+                "map": lane_enc,
+                "vehicles": vehicle_enc,
+                "pedestrians": ped_enc,
+                "map_masks": lane_masks,
+                "vehicle_masks": vehicle_masks,
+                "pedestrian_masks": ped_masks,
+            },
+        }
 
         return encodings
 
-    def encode(self, encoder_layers: nn.ModuleList, input_feats: torch.Tensor,
-               masks: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(
+        self,
+        encoder_layers: nn.ModuleList,
+        input_feats: torch.Tensor,
+        masks: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Applies encoding layers to a given set of input feats
         """
@@ -120,7 +137,10 @@ class PolylineSubgraphs(PredictionEncoder):
             encodings = self.relu(self.layer_norm(encoder_layers[n](encodings)))
             encodings = encodings + masks.unsqueeze(-1)
             agg_enc, _ = torch.max(encodings, dim=2)
-            encodings = torch.cat((encodings, agg_enc.unsqueeze(2).repeat(1, 1, encodings.shape[2], 1)), dim=3)
+            encodings = torch.cat(
+                (encodings, agg_enc.unsqueeze(2).repeat(1, 1, encodings.shape[2], 1)),
+                dim=3,
+            )
             encodings[encodings == -math.inf] = 0
 
         agg_encoding, _ = torch.max(encodings, dim=2)

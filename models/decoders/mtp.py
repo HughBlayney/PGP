@@ -6,7 +6,6 @@ from typing import Dict
 
 
 class MTP(PredictionDecoder):
-
     def __init__(self, args):
         """
         Prediction decoder for MTP
@@ -21,15 +20,17 @@ class MTP(PredictionDecoder):
 
         super().__init__()
 
-        self.agg_type = args['agg_type']
-        self.num_modes = args['num_modes']
-        self.op_len = args['op_len']
-        self.use_variance = args['use_variance']
+        self.agg_type = args["agg_type"]
+        self.num_modes = args["num_modes"]
+        self.op_len = args["op_len"]
+        self.use_variance = args["use_variance"]
         self.op_dim = 5 if self.use_variance else 2
 
-        self.hidden = nn.Linear(args['encoding_size'], args['hidden_size'])
-        self.traj_op = nn.Linear(args['hidden_size'], args['op_len'] * self.op_dim * self.num_modes)
-        self.prob_op = nn.Linear(args['hidden_size'], self.num_modes)
+        self.hidden = nn.Linear(args["encoding_size"], args["hidden_size"])
+        self.traj_op = nn.Linear(
+            args["hidden_size"], args["op_len"] * self.op_dim * self.num_modes
+        )
+        self.prob_op = nn.Linear(args["hidden_size"], self.num_modes)
 
         self.leaky_relu = nn.LeakyReLU(0.01)
         self.log_softmax = nn.LogSoftmax(dim=1)
@@ -49,6 +50,6 @@ class MTP(PredictionDecoder):
         probs = probs.squeeze(dim=-1)
         traj = bivariate_gaussian_activation(traj) if self.use_variance else traj
 
-        predictions = {'traj': traj, 'probs': probs}
+        predictions = {"traj": traj, "probs": probs}
 
         return predictions
